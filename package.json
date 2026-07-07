@@ -1,0 +1,43 @@
+import pandas as pd
+import joblib
+from sklearn.model_selection import train_test_split
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import accuracy_score, classification_report, confusion_matrix, roc_auc_score
+
+# Load Kaggle dataset
+data = pd.read_csv("data/creditcard.csv")
+
+print(f"Dataset loaded: {len(data)} transactions")
+print(f"Fraud cases: {data['Class'].sum()} ({data['Class'].sum()/len(data)*100:.2f}%)")
+
+X = data.drop('Class', axis=1)
+y = data['Class']
+
+# Split data - keep fraud cases in both train and test
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
+
+# Better model - no max_depth limit, more trees, balanced weights
+model = RandomForestClassifier(
+    n_estimators=200,
+    random_state=42,
+    class_weight={0: 1, 1: 100},  # heavily penalize missing fraud
+    n_jobs=-1
+)
+model.fit(X_train, y_train)
+
+# Evaluate
+y_pred = model.predict(X_test)
+y_proba = model.predict_proba(X_test)[:, 1]
+
+print("\n" + "="*50)
+print("Model Performance")
+print("="*50)
+print(f"Accuracy     : {accuracy_score(y_test, y_pred) * 100:.2f}%")
+print(f"ROC-AUC Score: {roc_auc_score(y_test, y_proba):.4f}")
+print("\nClassification Report:")
+print(classification_report(y_test, y_pred, target_names=["Legitimate", "Fraud"]))
+print("Confusion Matrix:")
+print(confusion_matrix(y_test, y_pred))
+
+joblib.dump(model, "model.pkl")
+print("\nModel saved as model.pkl")
